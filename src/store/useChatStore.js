@@ -30,7 +30,12 @@ export const useChatStore = create((set, get) => ({
   fetchFriends: async () => {
     try {
       const response = await api.get('/friends/list');
-      set({ friends: response.data.friends });
+      const sortedFriends = [...response.data.friends].sort((a, b) => {
+        const timeA = new Date(a.lastMessage?.createdAt || a.updatedAt).getTime();
+        const timeB = new Date(b.lastMessage?.createdAt || b.updatedAt).getTime();
+        return timeB - timeA;
+      });
+      set({ friends: sortedFriends });
     } catch (error) {
       console.error('Fetch friends error:', error);
     }
@@ -78,7 +83,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   addMessage: (msg) => {
-    const { messages, activeChat, unreadCounts } = get();
+    const { messages, activeChat, unreadCounts, friends } = get();
     
     // Avoid appending duplicate messages
     if (messages.some((m) => m._id === msg._id)) {
@@ -89,27 +94,39 @@ export const useChatStore = create((set, get) => ({
 
     if (isCurrentActiveChat) {
       set({ messages: [...messages, msg] });
-    } else if (msg.sender._id !== useAuthStore.getState().user?._id) {
-      // Message is from another friend and not sent by self: Increment unread count
-      const senderId = msg.sender._id;
-      const currentCount = unreadCounts[senderId] || 0;
-      set({
-        unreadCounts: {
-          ...unreadCounts,
-          [senderId]: currentCount + 1,
-        },
-      });
-      
-      // Update last message preview in friends list
-      set((state) => ({
-        friends: state.friends.map((f) => {
-          if (f._id === senderId) {
-            return { ...f, lastMessage: msg };
-          }
-          return f;
-        }),
-      }));
     }
+
+    // Determine whose lastMessage is being updated (the friend in the conversation)
+    const selfId = useAuthStore.getState().user?._id;
+    const friendId = msg.sender._id === selfId ? msg.receiver._id : msg.sender._id;
+
+    // Update unread count if it's from a background chat (not current active chat) and not sent by self
+    let updatedUnreadCounts = { ...unreadCounts };
+    if (!isCurrentActiveChat && msg.sender._id !== selfId) {
+      updatedUnreadCounts[friendId] = (unreadCounts[friendId] || 0) + 1;
+    }
+
+    // Update the friends list:
+    // 1. Update the lastMessage of the matched friend.
+    // 2. Sort the friends list so that the contact with the newest message is at the top.
+    const updatedFriends = friends.map((f) => {
+      if (f._id === friendId) {
+        return { ...f, lastMessage: msg, updatedAt: msg.createdAt };
+      }
+      return f;
+    });
+
+    // Move the active conversation partner to the top
+    updatedFriends.sort((a, b) => {
+      const timeA = new Date(a.lastMessage?.createdAt || a.updatedAt).getTime();
+      const timeB = new Date(b.lastMessage?.createdAt || b.updatedAt).getTime();
+      return timeB - timeA;
+    });
+
+    set({
+      unreadCounts: updatedUnreadCounts,
+      friends: updatedFriends,
+    });
   },
 
   setOnlineUsers: (users) => set({ onlineUsers: users }),
