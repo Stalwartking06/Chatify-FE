@@ -67,8 +67,9 @@ export const useSocket = () => {
       const isSelf = msg.sender._id === user._id;
       if (!isSelf) {
         const isCurrentActiveChat = activeChat && activeChat._id === msg.sender._id;
+        const isUserOnChat = isCurrentActiveChat && document.visibilityState === 'visible';
         
-        if (isCurrentActiveChat) {
+        if (isUserOnChat) {
           // Play a light sent click or keep silent when active chat is focused
           soundService.playSent();
           // Emit seen event immediately back to the sender
@@ -76,6 +77,8 @@ export const useSocket = () => {
         } else {
           // Play received chime for background messages
           soundService.playReceived();
+          // Check session token status and refresh if close to expiration
+          useAuthStore.getState().checkAndRefreshSession();
         }
       } else {
         // Play click sound when user sends a message

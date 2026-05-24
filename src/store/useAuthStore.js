@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import api from '../services/api.js';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 
 export const useAuthStore = create((set, get) => ({
   user: null,
@@ -95,6 +96,51 @@ export const useAuthStore = create((set, get) => ({
       const errorMsg = error.response?.data?.message || 'Failed to update profile.';
       toast.error(errorMsg);
       return false;
+    }
+  },
+
+  checkAndRefreshSession: async () => {
+    const { token, logout } = get();
+    if (!token) return;
+    try {
+      const base64Url = token.split('.')[1];
+      if (!base64Url) return;
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      const payload = JSON.parse(jsonPayload);
+      
+      const currentTime = Math.floor(Date.now() / 1000);
+      const timeToExpire = payload.exp - currentTime; // in seconds
+
+      if (timeToExpire <= 300) {
+        if (timeToExpire <= 0) {
+          toast.error('Your session has expired. Logging out...', { id: 'session-alert' });
+          logout();
+          return;
+        }
+
+        const toastId = toast.loading('Session is about to expire. Refreshing...', { id: 'session-alert' });
+        try {
+          const response = await axios.post(
+            `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/refresh`,
+            {},
+            { withCredentials: true }
+          );
+          const { token: newToken } = response.data;
+          set({ token: newToken });
+          toast.success('Session renewed successfully!', { id: 'session-alert' });
+        } catch (refreshError) {
+          toast.error('Session expired. Please log in again.', { id: 'session-alert' });
+          logout();
+        }
+      }
+    } catch (e) {
+      console.error('Error verifying token expiration:', e);
     }
   },
 }));

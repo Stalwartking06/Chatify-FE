@@ -29,14 +29,14 @@ const formatLastSeen = (lastSeenDate) => {
   
   // If today
   if (date.toDateString() === now.toDateString()) {
-    return `Last seen today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return `Last seen today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}`;
   }
   
   // If yesterday
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
   if (date.toDateString() === yesterday.toDateString()) {
-    return `Last seen yesterday at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return `Last seen yesterday at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}`;
   }
   
   return `Last seen on ${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
@@ -196,7 +196,10 @@ const ChatWindow = ({ onBack }) => {
               )}
             </div>
             {isOnline && (
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-[#080c14]"></span>
+              <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#080c14] shadow-lg flex items-center justify-center">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
             )}
           </div>
 
@@ -244,6 +247,7 @@ const ChatWindow = ({ onBack }) => {
               const msgTime = new Date(msg.createdAt).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
+                hour12: true,
               });
 
               return (
@@ -279,10 +283,10 @@ const ChatWindow = ({ onBack }) => {
                   {/* Message Bubble Container */}
                   <div className="flex flex-col">
                     <div
-                      className={`glass-card p-3 shadow-md transition-all ${
+                      className={`glass-card p-3 shadow-md transition-all duration-200 ${
                         isSelf
-                          ? 'bg-blue-600/90 text-white rounded-2xl rounded-br-none border-blue-500/10'
-                          : 'bg-slate-800/80 text-slate-100 rounded-2xl rounded-bl-none border-slate-700/10'
+                          ? 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-500 text-white rounded-2xl rounded-br-none border border-blue-500/20 shadow-md shadow-blue-900/10'
+                          : 'bg-slate-800/85 text-slate-100 rounded-2xl rounded-bl-none border border-slate-700/60 shadow-sm'
                       }`}
                     >
                       {/* Optional Image */}
@@ -420,7 +424,7 @@ const ChatWindow = ({ onBack }) => {
           <button
             type="submit"
             disabled={!text.trim() && !selectedImage}
-            className="p-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+            className="p-2.5 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md hover:shadow-lg hover:shadow-blue-500/25 hover:scale-[1.03] active:scale-95 transition-all duration-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none disabled:scale-100"
           >
             <Send className="w-4 h-4 rotate-45" />
           </button>

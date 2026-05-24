@@ -25,7 +25,7 @@ const formatTime = (dateString) => {
   
   // If today, return HH:MM
   if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
   }
   
   // If yesterday, return "Yesterday"
@@ -206,12 +206,14 @@ const Sidebar = () => {
                     const isActive = activeChat?._id === friend._id;
                     const lastMsg = friend.lastMessage;
 
-                    return (
+                     return (
                       <div
                         key={friend._id}
                         onClick={() => setActiveChat(friend)}
-                        className={`flex items-center gap-3 p-3.5 cursor-pointer hover:bg-slate-800/20 active:bg-slate-800/45 transition-all ${
-                          isActive ? 'bg-blue-600/5 border-l-2 border-blue-500' : ''
+                        className={`flex items-center gap-3 p-3.5 cursor-pointer hover:bg-slate-800/25 active:bg-slate-800/45 transition-all duration-300 ${
+                          isActive
+                            ? 'bg-gradient-to-r from-blue-600/10 via-blue-600/5 to-transparent border-l-4 border-blue-500 shadow-[inset_6px_0_20px_rgba(59,130,246,0.04)]'
+                            : 'border-l-4 border-transparent'
                         }`}
                       >
                         {/* Avatar */}
@@ -232,7 +234,10 @@ const Sidebar = () => {
                             )}
                           </div>
                           {isOnline && (
-                            <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-[#0f172a] shadow-sm animate-pulse"></span>
+                            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[#0f172a] shadow-lg flex items-center justify-center">
+                              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                            </span>
                           )}
                         </div>
 
