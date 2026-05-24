@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/useAuthStore.js';
 import { useChatStore } from '../store/useChatStore.js';
 import { useFriendStore } from '../store/useFriendStore.js';
 import soundService from '../components/AudioNotification.js';
+import toast from 'react-hot-toast';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
@@ -66,17 +67,16 @@ export const useSocket = () => {
       // Handle sound play and seen status
       const isSelf = msg.sender._id === user._id;
       if (!isSelf) {
+        // Always play received sound for any incoming message
+        soundService.playReceived();
+
         const isCurrentActiveChat = activeChat && activeChat._id === msg.sender._id;
         const isUserOnChat = isCurrentActiveChat && document.visibilityState === 'visible';
         
         if (isUserOnChat) {
-          // Play a light sent click or keep silent when active chat is focused
-          soundService.playSent();
           // Emit seen event immediately back to the sender
           socket.emit('message-seen', { messageId: msg._id, senderId: msg.sender._id });
         } else {
-          // Play received chime for background messages
-          soundService.playReceived();
           // Check session token status and refresh if close to expiration
           useAuthStore.getState().checkAndRefreshSession();
         }
@@ -119,6 +119,7 @@ export const useSocket = () => {
       fetchFriends();
       removeRequestOnResponse(requestId);
       soundService.playAlert();
+      toast.success(`${friend.displayName} accepted your friend request!`, { icon: '🤝' });
     });
 
     socket.on('friend-request-rejected', ({ requestId }) => {

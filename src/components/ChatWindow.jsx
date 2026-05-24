@@ -12,6 +12,7 @@ import {
   CheckCheck,
   ArrowLeft,
   Info,
+  User,
 } from 'lucide-react';
 
 const EMOJIS = [
@@ -59,6 +60,7 @@ const ChatWindow = ({ onBack }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showFriendProfile, setShowFriendProfile] = useState(false);
   
   const scrollRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -179,45 +181,60 @@ const ChatWindow = ({ onBack }) => {
             <ArrowLeft className="w-5 h-5" />
           </button>
           
-          <div className="relative">
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-700 bg-slate-800 flex items-center justify-center font-bold text-sm">
-              {activeChat.avatar ? (
-                <img
-                  src={
-                    activeChat.avatar.startsWith('/')
-                      ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${activeChat.avatar}`
-                      : activeChat.avatar
-                  }
-                  alt={activeChat.displayName}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                activeChat.displayName.slice(0, 2).toUpperCase()
+          <div 
+            onClick={() => setShowFriendProfile(true)}
+            className="flex items-center gap-3 min-w-0 cursor-pointer group"
+          >
+            <div className="relative flex-shrink-0">
+              <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-700 bg-slate-800 flex items-center justify-center font-bold text-sm">
+                {activeChat.avatar ? (
+                  <img
+                    src={
+                      activeChat.avatar.startsWith('/')
+                        ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${activeChat.avatar}`
+                        : activeChat.avatar
+                    }
+                    alt={activeChat.displayName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  activeChat.displayName.slice(0, 2).toUpperCase()
+                )}
+              </div>
+              {isOnline && (
+                <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#080c14] shadow-lg flex items-center justify-center">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                </span>
               )}
             </div>
-            {isOnline && (
-              <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#080c14] shadow-lg flex items-center justify-center">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-              </span>
-            )}
-          </div>
 
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold truncate text-slate-200">{activeChat.displayName}</h3>
-            {isTyping ? (
-              <span className="text-[10px] text-blue-400 font-medium animate-pulse">typing...</span>
-            ) : (
-              <span className="text-[10px] text-slate-500 font-medium truncate block">
-                {isOnline ? 'Online' : formatLastSeen(activeChat.lastSeen)}
-              </span>
-            )}
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold truncate text-slate-200 group-hover:text-blue-400 transition-colors">{activeChat.displayName}</h3>
+              {isTyping ? (
+                <span className="text-[10px] text-blue-400 font-medium animate-pulse">typing...</span>
+              ) : (
+                <span className="text-[10px] text-slate-500 font-medium truncate block">
+                  {isOnline ? 'Online' : formatLastSeen(activeChat.lastSeen)}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center text-slate-500 flex-shrink-0" title="All chat history is auto-deleted after 24h">
-          <Info className="w-4 h-4 mr-1 text-slate-600 flex-shrink-0" />
-          <span className="text-[9px] uppercase tracking-wider font-semibold hidden sm:inline">24h History</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => setShowFriendProfile(true)}
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all cursor-pointer"
+            title="View Contact Profile"
+          >
+            <User className="w-4 h-4 text-slate-400 hover:text-blue-400 transition-colors" />
+          </button>
+
+          <div className="flex items-center text-slate-500" title="All chat history is auto-deleted after 24h">
+            <Info className="w-4 h-4 mr-1 text-slate-600 flex-shrink-0" />
+            <span className="text-[9px] uppercase tracking-wider font-semibold hidden sm:inline">24h History</span>
+          </div>
         </div>
       </header>
 
@@ -430,6 +447,58 @@ const ChatWindow = ({ onBack }) => {
           </button>
         </form>
       </footer>
+
+      {/* FRIEND PROFILE MODAL */}
+      {showFriendProfile && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-[#0f172a]/95 border border-slate-800/80 rounded-3xl p-6 flex flex-col items-center shadow-2xl relative animate-slide-up">
+            {/* Close Button */}
+            <button
+              onClick={() => setShowFriendProfile(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Profile Avatar */}
+            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-blue-500 bg-slate-800 flex items-center justify-center font-bold text-3xl text-blue-400 mb-4 shadow-lg shadow-blue-500/10">
+              {activeChat.avatar ? (
+                <img
+                  src={
+                    activeChat.avatar.startsWith('/')
+                      ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${activeChat.avatar}`
+                      : activeChat.avatar
+                  }
+                  alt={activeChat.displayName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                activeChat.displayName.slice(0, 2).toUpperCase()
+              )}
+            </div>
+
+            {/* User Details */}
+            <h3 className="text-xl font-bold text-slate-200">{activeChat.displayName}</h3>
+            <p className="text-sm text-slate-400 mt-0.5">@{activeChat.username}</p>
+
+            {/* Status indicator */}
+            <div className="flex items-center gap-2 mt-3 px-3 py-1 rounded-full bg-slate-900 border border-slate-800/50">
+              <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`}></span>
+              <span className="text-xs text-slate-300 font-medium">
+                {isOnline ? 'Online' : formatLastSeen(activeChat.lastSeen)}
+              </span>
+            </div>
+
+            {/* Bio info */}
+            <div className="w-full mt-6 pt-5 border-t border-slate-800/60 text-center">
+              <p className="text-xs text-slate-500 uppercase tracking-wider font-bold mb-1.5">Bio</p>
+              <p className="text-sm text-slate-300 italic px-2">
+                {activeChat.bio || "No bio written yet."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

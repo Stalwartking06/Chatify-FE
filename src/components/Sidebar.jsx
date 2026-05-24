@@ -67,6 +67,8 @@ const Sidebar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const totalUnreadCount = Object.values(unreadCounts).reduce((sum, val) => sum + val, 0);
+
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
@@ -149,7 +151,7 @@ const Sidebar = () => {
       <div className="flex border-b border-slate-800/50 p-2 gap-1 bg-slate-900/30">
         <button
           onClick={() => setActiveTab('chats')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xl transition-all whitespace-nowrap ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xl transition-all relative whitespace-nowrap ${
             activeTab === 'chats'
               ? 'bg-blue-600/10 border border-blue-500/20 text-blue-400 shadow-sm'
               : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/20'
@@ -157,6 +159,11 @@ const Sidebar = () => {
         >
           <MessageSquare className="w-4 h-4" />
           Chats
+          {totalUnreadCount > 0 && (
+            <span className="absolute top-1.5 right-2 w-4 h-4 rounded-full bg-blue-600 text-white text-[8px] font-extrabold flex items-center justify-center border border-[#0f172a] shadow-sm animate-pulse">
+              {totalUnreadCount}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setActiveTab('search')}
@@ -260,7 +267,7 @@ const Sidebar = () => {
                                   Image
                                 </span>
                               ) : (
-                                lastMsg?.text || friend.bio || 'Say hello!'
+                                lastMsg?.text || 'Say hello!'
                               )}
                             </p>
 

@@ -6,6 +6,7 @@
 class AudioNotificationService {
   constructor() {
     this.ctx = null;
+    this.receivedAudio = null;
   }
 
   init() {
@@ -15,7 +16,7 @@ class AudioNotificationService {
     }
   }
 
-  playReceived() {
+  playSynthesizedReceived() {
     try {
       this.init();
       if (!this.ctx) return;
@@ -51,6 +52,23 @@ class AudioNotificationService {
       osc2.stop(now + delay + 0.12);
     } catch (e) {
       console.warn('Web Audio playback blocked or unsupported:', e.message);
+    }
+  }
+
+  playReceived() {
+    try {
+      if (!this.receivedAudio) {
+        this.receivedAudio = new Audio('/yuppy.mp3');
+        this.receivedAudio.volume = 0.6; // Clear and audible
+      }
+      this.receivedAudio.currentTime = 0;
+      this.receivedAudio.play().catch((err) => {
+        console.warn('Custom yuppy sound failed or blocked, falling back to chime:', err.message);
+        this.playSynthesizedReceived();
+      });
+    } catch (e) {
+      console.warn('HTML5 Audio play error, falling back to chime:', e.message);
+      this.playSynthesizedReceived();
     }
   }
 
