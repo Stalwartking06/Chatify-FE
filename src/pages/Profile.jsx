@@ -286,13 +286,13 @@ const Profile = () => {
       {/* CROPPER MODAL */}
       {cropImageSrc && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#0f172a]/95 border border-slate-800/80 rounded-3xl p-6 flex flex-col shadow-2xl relative animate-slide-up">
+          <div className="w-full max-w-md bg-[#0f172a]/95 border border-slate-800/80 rounded-3xl p-6 flex flex-col shadow-2xl relative animate-slide-up max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-center text-slate-200 mb-2">Crop Profile Photo</h3>
             <p className="text-xs text-slate-400 text-center mb-6">Drag photo to center, use slider to zoom</p>
 
             {/* Crop Viewport with Glowing Circular Boundary */}
             <div className="relative flex justify-center items-center mb-6">
-              <div className="w-[300px] h-[300px] rounded-full overflow-hidden border-2 border-blue-500 shadow-xl shadow-blue-500/10 cursor-move relative flex items-center justify-center bg-slate-950">
+              <div className="w-[260px] h-[260px] xs:w-[280px] xs:h-[280px] sm:w-[300px] sm:h-[300px] rounded-full overflow-hidden border-2 border-blue-500 shadow-xl shadow-blue-500/10 cursor-move relative flex items-center justify-center bg-slate-950 flex-shrink-0">
                 <canvas
                   ref={cropperCanvasRef}
                   onMouseDown={onMouseDown}
@@ -302,7 +302,7 @@ const Profile = () => {
                   onTouchStart={onTouchStart}
                   onTouchMove={onTouchMove}
                   onTouchEnd={handleDragEnd}
-                  className="absolute"
+                  className="absolute w-full h-full"
                 />
                 
                 {/* Visual grid layout helper */}

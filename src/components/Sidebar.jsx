@@ -100,11 +100,11 @@ const Sidebar = () => {
   return (
     <aside className="w-full md:w-80 h-full flex flex-col border-r border-slate-800 bg-[#0f172a]/90 backdrop-blur-xl relative z-20">
       {/* Sidebar Header */}
-      <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="p-4 border-b border-slate-800/80 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
           <div
             onClick={() => navigate('/profile')}
-            className="w-10 h-10 rounded-full overflow-hidden border border-slate-700 cursor-pointer bg-slate-800 flex items-center justify-center font-bold text-blue-400"
+            className="w-10 h-10 rounded-full overflow-hidden border border-slate-700 cursor-pointer bg-slate-800 flex items-center justify-center font-bold text-blue-400 flex-shrink-0"
           >
             {user?.avatar ? (
               <img
@@ -120,14 +120,14 @@ const Sidebar = () => {
               user?.displayName?.slice(0, 2).toUpperCase()
             )}
           </div>
-          <div>
-            <h2 className="text-sm font-semibold leading-none">{user?.displayName}</h2>
-            <span className="text-xs text-slate-400">@{user?.username}</span>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold leading-none truncate text-slate-200">{user?.displayName}</h2>
+            <span className="text-xs text-slate-400 truncate block mt-1">@{user?.username}</span>
           </div>
         </div>
         
         {/* Settings & Logout */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <button
             onClick={() => navigate('/profile')}
             title="Edit Profile"
@@ -149,7 +149,7 @@ const Sidebar = () => {
       <div className="flex border-b border-slate-800/50 p-2 gap-1 bg-slate-900/30">
         <button
           onClick={() => setActiveTab('chats')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xl transition-all ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'chats'
               ? 'bg-blue-600/10 border border-blue-500/20 text-blue-400 shadow-sm'
               : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/20'
@@ -160,7 +160,7 @@ const Sidebar = () => {
         </button>
         <button
           onClick={() => setActiveTab('search')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xl transition-all ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'search'
               ? 'bg-blue-600/10 border border-blue-500/20 text-blue-400 shadow-sm'
               : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/20'
@@ -171,7 +171,7 @@ const Sidebar = () => {
         </button>
         <button
           onClick={() => setActiveTab('requests')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xl transition-all relative ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xl transition-all relative whitespace-nowrap ${
             activeTab === 'requests'
               ? 'bg-blue-600/10 border border-blue-500/20 text-blue-400 shadow-sm'
               : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/20'
@@ -306,7 +306,7 @@ const Sidebar = () => {
                         return (
                           <div
                             key={searchUser._id}
-                            className="flex items-center justify-between p-3 rounded-2xl bg-slate-800/10 border border-slate-800/40"
+                            className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-slate-800/10 border border-slate-800/40"
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-700 bg-slate-800 flex items-center justify-center font-semibold text-xs flex-shrink-0">
@@ -390,7 +390,7 @@ const Sidebar = () => {
                     incomingRequests.map((req) => (
                       <div
                         key={req._id}
-                        className="flex items-center justify-between p-3 rounded-2xl bg-slate-800/10 border border-slate-800/40"
+                        className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-slate-800/10 border border-slate-800/40"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-700 bg-slate-800 flex items-center justify-center font-semibold text-xs flex-shrink-0">

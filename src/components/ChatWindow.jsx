@@ -212,9 +212,9 @@ const ChatWindow = ({ onBack }) => {
           </div>
         </div>
 
-        <div className="flex items-center text-slate-500" title="All chat history is auto-deleted after 24h">
-          <Info className="w-4 h-4 mr-1 text-slate-600" />
-          <span className="text-[9px] uppercase tracking-wider font-semibold">24h History</span>
+        <div className="flex items-center text-slate-500 flex-shrink-0" title="All chat history is auto-deleted after 24h">
+          <Info className="w-4 h-4 mr-1 text-slate-600 flex-shrink-0" />
+          <span className="text-[9px] uppercase tracking-wider font-semibold hidden sm:inline">24h History</span>
         </div>
       </header>
 
@@ -338,7 +338,7 @@ const ChatWindow = ({ onBack }) => {
       <footer className="p-3 border-t border-slate-800 bg-[#0f172a]/70 backdrop-blur-md relative">
         {/* Emoji Selector Overlay */}
         {showEmojiPicker && (
-          <div className="absolute bottom-16 left-4 p-2.5 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl z-30 grid grid-cols-6 gap-1.5 animate-slide-up">
+          <div className="absolute bottom-16 left-4 right-4 md:right-auto max-w-[280px] p-2.5 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl z-30 grid grid-cols-6 gap-1.5 animate-slide-up">
             {EMOJIS.map((emoji) => (
               <button
                 key={emoji}
