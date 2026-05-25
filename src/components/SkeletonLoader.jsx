@@ -1,5 +1,3 @@
-import React from 'react';
-
 export const ContactsSkeleton = () => {
   return (
     <div className="space-y-4 p-4">
@@ -50,6 +48,27 @@ export const ProfileSkeleton = () => {
       <div className="w-full space-y-3 pt-6 border-t border-slate-800">
         <div className="h-10 bg-slate-800 rounded"></div>
         <div className="h-16 bg-slate-800 rounded"></div>
+      </div>
+    </div>
+  );
+};
+
+
+export const PageLoader = ({ text = "Loading..." }) => {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#0b0f19]">
+      <div className="flex flex-col items-center gap-4">
+        {/* Animated Loader */}
+        <div className="relative">
+          <div className="w-14 h-14 rounded-full border-2 border-slate-700"></div>
+
+          <div className="absolute inset-0 w-14 h-14 rounded-full border-2 border-transparent border-t-blue-500 animate-spin"></div>
+        </div>
+
+        {/* Loading Text */}
+        <p className="text-sm text-slate-400 font-medium tracking-wide">
+          {text}
+        </p>
       </div>
     </div>
   );

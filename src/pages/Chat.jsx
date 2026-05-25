@@ -1,11 +1,13 @@
-import React from 'react';
 import Sidebar from '../components/Sidebar.jsx';
 import ChatWindow from '../components/ChatWindow.jsx';
 import { useChatStore } from '../store/useChatStore.js';
 
 const Chat = () => {
-  const { activeChat, setActiveChat } = useChatStore();
+const activeChat = useChatStore((state) => state.activeChat);
 
+const setActiveChat = useChatStore(
+  (state) => state.setActiveChat
+);
   return (
     <div className="min-h-[100dvh] max-h-[100dvh] bg-[#0b0f19] flex relative overflow-hidden">
       {/* Background Gradients */}
