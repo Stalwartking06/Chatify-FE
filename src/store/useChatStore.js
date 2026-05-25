@@ -19,6 +19,8 @@ export const useChatStore = create((set, get) => ({
 
   isChatLoading: false,
 
+  hasMoreMessages: false,
+
   setFriends: (friends) => {
     set({ friends });
   },
@@ -91,23 +93,34 @@ export const useChatStore = create((set, get) => ({
   },
 
   // FETCH MESSAGES
-  fetchMessages: async (friendId) => {
+  fetchMessages: async (friendId, before = null) => {
 
-    set({
-      isChatLoading: true,
-    });
+    if (!before) {
+      set({
+        isChatLoading: true,
+        messages: [],
+      });
+    }
 
     try {
 
-      const response =
-        await api.get(
-          `/messages/history/${friendId}`
-        );
+      const url = `/messages/history/${friendId}${
+        before ? `?before=${encodeURIComponent(before)}` : ''
+      }`;
+      const response = await api.get(url);
 
-      set({
-        messages:
-          response.data.messages || [],
-        isChatLoading: false,
+      const fetchedMessages =
+        response.data.messages || [];
+
+      set((state) => {
+        const newMessages = before
+          ? [...fetchedMessages, ...state.messages]
+          : fetchedMessages;
+        return {
+          messages: newMessages,
+          isChatLoading: false,
+          hasMoreMessages: fetchedMessages.length === 50,
+        };
       });
 
     } catch (error) {
@@ -134,6 +147,33 @@ export const useChatStore = create((set, get) => ({
     imageFile
   ) => {
 
+    const clientMessageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const selfUser = useAuthStore.getState().user;
+
+    // Optimistically insert temporary message for instant UI rendering
+    const optimisticMessage = {
+      _id: `temp-${clientMessageId}`,
+      sender: {
+        _id: selfUser?._id,
+        username: selfUser?.username,
+        displayName: selfUser?.displayName,
+        avatar: selfUser?.avatar,
+      },
+      receiver: {
+        _id: friendId,
+      },
+      text: text?.trim() || '',
+      image: imageFile ? URL.createObjectURL(imageFile) : '',
+      status: 'sent',
+      clientMessageId,
+      isOptimistic: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    set((state) => ({
+      messages: [...state.messages, optimisticMessage],
+    }));
+
     try {
 
       const formData = new FormData();
@@ -141,6 +181,11 @@ export const useChatStore = create((set, get) => ({
       formData.append(
         'receiverId',
         friendId
+      );
+
+      formData.append(
+        'clientMessageId',
+        clientMessageId
       );
 
       if (text?.trim()) {
@@ -168,10 +213,16 @@ export const useChatStore = create((set, get) => ({
         }
       );
 
-      // Socket will handle realtime insert
       return true;
 
     } catch (error) {
+
+      // Remove optimistic message on failure (rollback)
+      set((state) => ({
+        messages: state.messages.filter(
+          (m) => m.clientMessageId !== clientMessageId
+        ),
+      }));
 
       const errorMsg =
         error.response?.data?.message ||
@@ -197,7 +248,7 @@ export const useChatStore = create((set, get) => ({
     const selfId =
       useAuthStore.getState().user?._id;
 
-    // Prevent duplicates
+    // Prevent duplicates by DB ID
     const alreadyExists =
       state.messages.some(
         (m) => m._id === msg._id
@@ -222,6 +273,27 @@ export const useChatStore = create((set, get) => ({
 
     const isCurrentChat =
       activeChat?._id === friendId;
+
+    // Resolve optimistic UI message
+    let optimisticFound = false;
+    let updatedMessages = state.messages;
+
+    if (msg.clientMessageId && isCurrentChat) {
+      updatedMessages = state.messages.map((m) => {
+        if (m.clientMessageId === msg.clientMessageId) {
+          optimisticFound = true;
+          return {
+            ...msg,
+            image: msg.image || m.image, // retain object URL if uploaded
+          };
+        }
+        return m;
+      });
+    }
+
+    if (!optimisticFound && isCurrentChat) {
+      updatedMessages = [...state.messages, msg];
+    }
 
     // Update unread counts
     const updatedUnreadCounts = {
@@ -255,7 +327,7 @@ export const useChatStore = create((set, get) => ({
         return friend;
       });
 
-    // Sort only once
+    // Sort friends list by latest message timestamp
     updatedFriends.sort((a, b) => {
 
       const timeA = new Date(
@@ -273,18 +345,13 @@ export const useChatStore = create((set, get) => ({
       return timeB - timeA;
     });
 
-    set((state) => ({
-
-      messages: isCurrentChat
-        ? [...state.messages, msg]
-        : state.messages,
-
+    set({
+      messages: updatedMessages,
       unreadCounts:
         updatedUnreadCounts,
-
       friends:
         updatedFriends,
-    }));
+    });
   },
 
   // ONLINE USERS

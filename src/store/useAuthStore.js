@@ -3,6 +3,7 @@ import api from '../services/api.js';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
+import { connectSocket, disconnectSocket } from '../socket/socketService.js';
 
 let isRefreshing = false;
 
@@ -29,6 +30,8 @@ export const useAuthStore = create((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
       });
+
+      connectSocket(get().token);
 
     } catch (error) {
 
@@ -66,6 +69,8 @@ export const useAuthStore = create((set, get) => ({
       toast.success(
         response.data.message || 'Logged in successfully!'
       );
+
+      connectSocket(response.data.token);
 
       return true;
 
@@ -108,6 +113,8 @@ export const useAuthStore = create((set, get) => ({
         response.data.message || 'Registration successful!'
       );
 
+      connectSocket(response.data.token);
+
       return true;
 
     } catch (error) {
@@ -139,6 +146,8 @@ export const useAuthStore = create((set, get) => ({
       }
 
     } finally {
+
+      disconnectSocket();
 
       set({
         user: null,

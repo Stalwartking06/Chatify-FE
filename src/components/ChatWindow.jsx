@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   Info,
   User,
+  Loader2,
 } from 'lucide-react';
 
 const EMOJIS = [
@@ -43,16 +44,105 @@ const formatLastSeen = (lastSeenDate) => {
   return `Last seen on ${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
 };
 
+// Memoized MessageBubble to optimize rendering of large message history lists
+const MessageBubble = React.memo(({ msg, isSelf, isLastInGroup, msgTime, activeChat }) => {
+  return (
+    <div
+      className={`flex items-end gap-2.5 max-w-[85%] md:max-w-[70%] ${
+        isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'
+      }`}
+    >
+      {/* Friend avatar on left for grouped message endpoints */}
+      {!isSelf && (
+        <div className="w-7 h-7 flex-shrink-0">
+          {isLastInGroup && (
+            <div className="w-7 h-7 rounded-full overflow-hidden border border-slate-800 bg-slate-800 flex items-center justify-center font-bold text-[9px]">
+              {activeChat.avatar ? (
+                <img
+                  src={
+                    activeChat.avatar.startsWith('/')
+                      ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${activeChat.avatar}`
+                      : activeChat.avatar
+                  }
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                activeChat.displayName.slice(0, 2).toUpperCase()
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Message Bubble Container */}
+      <div className="flex flex-col">
+        <div
+          className={`glass-card p-3 shadow-md transition-all duration-200 ${
+            isSelf
+              ? 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-500 text-white rounded-2xl rounded-br-none border border-blue-500/20 shadow-md shadow-blue-900/10'
+              : 'bg-slate-800/85 text-slate-100 rounded-2xl rounded-bl-none border border-slate-700/60 shadow-sm'
+          }`}
+        >
+          {/* Optional Image */}
+          {msg.image && (
+            <div className="mb-1.5 max-w-full rounded-xl overflow-hidden border border-slate-900/50 bg-[#080c14]/40">
+              <img
+                src={
+                  msg.image.startsWith('/')
+                    ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${msg.image}`
+                    : msg.image
+                }
+                alt="Chat attachment"
+                className="max-h-60 object-contain w-full"
+                loading="lazy"
+              />
+            </div>
+          )}
+          
+          {/* Message Text */}
+          {msg.text && <p className="text-xs break-words leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
+        </div>
+
+        {/* Metadata Footer */}
+        {isLastInGroup && (
+          <div
+            className={`flex items-center gap-1 mt-1 text-[9px] text-slate-500 ${
+              isSelf ? 'justify-end' : 'justify-start'
+            }`}
+          >
+            <span>{msgTime}</span>
+            {isSelf && (
+              <span className="scale-90">
+                {msg.status === 'seen' ? (
+                  <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                ) : msg.status === 'delivered' ? (
+                  <CheckCheck className="w-3.5 h-3.5 text-slate-400" />
+                ) : (
+                  <Check className="w-3.5 h-3.5 text-slate-500" />
+                )}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+MessageBubble.displayName = 'MessageBubble';
+
 const ChatWindow = ({ onBack }) => {
-  const { user } = useAuthStore();
-  const {
-    activeChat,
-    messages,
-    isChatLoading,
-    sendMessage,
-    typingUsers,
-    onlineUsers,
-  } = useChatStore();
+  // Zustand specific selectors to prevent re-rendering when unrelated state changes
+  const user = useAuthStore((state) => state.user);
+  const activeChat = useChatStore((state) => state.activeChat);
+  const messages = useChatStore((state) => state.messages);
+  const isChatLoading = useChatStore((state) => state.isChatLoading);
+  const sendMessage = useChatStore((state) => state.sendMessage);
+  const typingUsers = useChatStore((state) => state.typingUsers);
+  const onlineUsers = useChatStore((state) => state.onlineUsers);
+  const hasMoreMessages = useChatStore((state) => state.hasMoreMessages);
+  const fetchMessages = useChatStore((state) => state.fetchMessages);
 
   const { emitTypingStart, emitTypingStop, emitMessageSeen } = useSocket();
 
@@ -61,6 +151,7 @@ const ChatWindow = ({ onBack }) => {
   const [imagePreview, setImagePreview] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showFriendProfile, setShowFriendProfile] = useState(false);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
   
   const scrollRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -70,12 +161,20 @@ const ChatWindow = ({ onBack }) => {
   const isOnline = activeChat && onlineUsers.includes(activeChat._id);
   const isTyping = activeChat && typingUsers[activeChat._id];
 
-  // Auto scroll to latest message when messages array updates
+  // Smart auto-scroll: Scroll only if near bottom or it's current user's message
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const scrollContainer = scrollRef.current;
+    if (scrollContainer && !isFetchingMore) {
+      const isNearBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 200;
+      
+      const lastMessage = messages[messages.length - 1];
+      const isMyMessage = lastMessage && (lastMessage.sender === user?._id || lastMessage.sender?._id === user?._id);
+
+      if (isNearBottom || isMyMessage || messages.length <= 1) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
     }
-  }, [messages, isTyping]);
+  }, [messages, isTyping, user?._id, isFetchingMore]);
 
   // Mark incoming messages as seen when chat becomes active or messages update
   useEffect(() => {
@@ -84,7 +183,19 @@ const ChatWindow = ({ onBack }) => {
     }
   }, [activeChat, messages.length, emitMessageSeen]);
 
-  // Handle typing state transitions
+  // Cleanup typing timeout and status on unmount
+  useEffect(() => {
+    return () => {
+      if (isTypingRef.current && activeChat) {
+        emitTypingStop(activeChat._id);
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [activeChat?._id, emitTypingStop]);
+
+  // Handle typing state transitions (debounced start/stop)
   const handleInputChange = (e) => {
     setText(e.target.value);
 
@@ -103,6 +214,28 @@ const ChatWindow = ({ onBack }) => {
         emitTypingStop(activeChat._id);
       }
     }, 2000);
+  };
+
+  // Scroll to top handler for cursor-based message pagination
+  const handleScroll = async (e) => {
+    const container = e.currentTarget;
+    if (container.scrollTop === 0 && messages.length > 0 && hasMoreMessages && !isFetchingMore) {
+      setIsFetchingMore(true);
+      const firstMessageTime = messages[0].createdAt;
+      const oldScrollHeight = container.scrollHeight;
+
+      await fetchMessages(activeChat._id, firstMessageTime);
+
+      // Adjust scroll position to maintain scroll location relative to content
+      setTimeout(() => {
+        if (scrollRef.current) {
+          const newScrollHeight = scrollRef.current.scrollHeight;
+          scrollRef.current.scrollTop = newScrollHeight - oldScrollHeight;
+        }
+      }, 50);
+
+      setIsFetchingMore(false);
+    }
   };
 
   const handleImageClick = () => {
@@ -176,7 +309,7 @@ const ChatWindow = ({ onBack }) => {
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onBack}
-            className="p-1.5 -ml-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 md:hidden"
+            className="p-1.5 -ml-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 md:hidden cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -244,8 +377,15 @@ const ChatWindow = ({ onBack }) => {
       ) : (
         <div
           ref={scrollRef}
+          onScroll={handleScroll}
           className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[#0b0f19]/35"
         >
+          {isFetchingMore && (
+            <div className="flex items-center justify-center py-2">
+              <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+            </div>
+          )}
+
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-500 text-center py-8">
               <p className="text-xs font-semibold">No messages yet</p>
@@ -253,7 +393,7 @@ const ChatWindow = ({ onBack }) => {
             </div>
           ) : (
             messages.map((msg, index) => {
-              const isSelf = msg.sender === user._id || msg.sender?._id === user._id;
+              const isSelf = msg.sender === user?._id || msg.sender?._id === user?._id;
               
               // Group logic: check if next message is sent by same user within 2 minutes
               const nextMsg = messages[index + 1];
@@ -268,95 +408,22 @@ const ChatWindow = ({ onBack }) => {
               });
 
               return (
-                <div
+                <MessageBubble
                   key={msg._id}
-                  className={`flex items-end gap-2.5 max-w-[85%] md:max-w-[70%] ${
-                    isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'
-                  }`}
-                >
-                  {/* Friend avatar on left for grouped message endpoints */}
-                  {!isSelf && (
-                    <div className="w-7 h-7 flex-shrink-0">
-                      {isLastInGroup && (
-                        <div className="w-7 h-7 rounded-full overflow-hidden border border-slate-800 bg-slate-800 flex items-center justify-center font-bold text-[9px]">
-                          {activeChat.avatar ? (
-                            <img
-                              src={
-                                activeChat.avatar.startsWith('/')
-                                  ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${activeChat.avatar}`
-                                  : activeChat.avatar
-                              }
-                              alt="Profile"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            activeChat.displayName.slice(0, 2).toUpperCase()
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Message Bubble Container */}
-                  <div className="flex flex-col">
-                    <div
-                      className={`glass-card p-3 shadow-md transition-all duration-200 ${
-                        isSelf
-                          ? 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-500 text-white rounded-2xl rounded-br-none border border-blue-500/20 shadow-md shadow-blue-900/10'
-                          : 'bg-slate-800/85 text-slate-100 rounded-2xl rounded-bl-none border border-slate-700/60 shadow-sm'
-                      }`}
-                    >
-                      {/* Optional Image */}
-                      {msg.image && (
-                        <div className="mb-1.5 max-w-full rounded-xl overflow-hidden border border-slate-900/50 bg-[#080c14]/40">
-                          <img
-                            src={
-                              msg.image.startsWith('/')
-                                ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${msg.image}`
-                                : msg.image
-                            }
-                            alt="Chat attachment"
-                            className="max-h-60 object-contain w-full"
-                            loading="lazy"
-                          />
-                        </div>
-                      )}
-                      
-                      {/* Message Text */}
-                      {msg.text && <p className="text-xs break-words leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
-                    </div>
-
-                    {/* Metadata Footer */}
-                    {isLastInGroup && (
-                      <div
-                        className={`flex items-center gap-1 mt-1 text-[9px] text-slate-500 ${
-                          isSelf ? 'justify-end' : 'justify-start'
-                        }`}
-                      >
-                        <span>{msgTime}</span>
-                        {isSelf && (
-                          <span className="scale-90">
-                            {msg.status === 'seen' ? (
-                              <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
-                            ) : msg.status === 'delivered' ? (
-                              <CheckCheck className="w-3.5 h-3.5 text-slate-400" />
-                            ) : (
-                              <Check className="w-3.5 h-3.5 text-slate-500" />
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  msg={msg}
+                  isSelf={isSelf}
+                  isLastInGroup={isLastInGroup}
+                  msgTime={msgTime}
+                  activeChat={activeChat}
+                />
               );
             })
           )}
         </div>
       )}
 
-      {/* Input panel wrapper */}
-      <footer className="p-3 border-t border-slate-800 bg-[#0f172a]/70 backdrop-blur-md relative">
+      {/* Input panel wrapper (Safe Area Bottom Spacing Added) */}
+      <footer className="p-3 border-t border-slate-800 bg-[#0f172a]/70 backdrop-blur-md relative pb-[calc(12px+env(safe-area-inset-bottom))]">
         {/* Emoji Selector Overlay */}
         {showEmojiPicker && (
           <div className="absolute bottom-16 left-4 right-4 md:right-auto max-w-[280px] p-2.5 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl z-30 grid grid-cols-6 gap-1.5 animate-slide-up">
@@ -385,7 +452,7 @@ const ChatWindow = ({ onBack }) => {
             </div>
             <button
               onClick={clearSelectedImage}
-              className="p-1.5 rounded-xl bg-red-600/10 text-red-400 hover:bg-red-600/20 transition-all"
+              className="p-1.5 rounded-xl bg-red-600/10 text-red-400 hover:bg-red-600/20 transition-all cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -455,7 +522,7 @@ const ChatWindow = ({ onBack }) => {
             {/* Close Button */}
             <button
               onClick={() => setShowFriendProfile(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="absolute top-4 right-4 p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
