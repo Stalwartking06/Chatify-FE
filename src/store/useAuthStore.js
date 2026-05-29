@@ -13,9 +13,22 @@ export const useAuthStore = create((set, get) => ({
   token: null,
   isAuthenticated: false,
   isLoading: true,
+  blockedUsers: [],
 
   setToken: (token) => {
     set({ token });
+  },
+
+  loadBlockedUsers: () => {
+    const user = get().user;
+    if (user) {
+      const stored = localStorage.getItem(`blocked_users_${user._id}`);
+      if (stored) {
+        set({ blockedUsers: JSON.parse(stored) });
+      } else {
+        set({ blockedUsers: [] });
+      }
+    }
   },
 
   // CHECK AUTH
@@ -32,6 +45,7 @@ export const useAuthStore = create((set, get) => ({
       });
 
       connectSocket(get().token);
+      get().loadBlockedUsers();
 
     } catch (error) {
 
@@ -71,6 +85,7 @@ export const useAuthStore = create((set, get) => ({
       );
 
       connectSocket(response.data.token);
+      get().loadBlockedUsers();
 
       return true;
 
@@ -114,6 +129,7 @@ export const useAuthStore = create((set, get) => ({
       );
 
       connectSocket(response.data.token);
+      get().loadBlockedUsers();
 
       return true;
 
@@ -279,6 +295,50 @@ export const useAuthStore = create((set, get) => ({
           error.message
         );
       }
+    }
+  },
+
+  blockUser: async (targetUser) => {
+    const toastId = toast.loading('Updating...');
+    try {
+      const response = await api.post('/users/block', { userId: targetUser._id });
+      
+      const user = get().user;
+      if (user) {
+        const updatedBlocked = [...get().blockedUsers, targetUser];
+        localStorage.setItem(`blocked_users_${user._id}`, JSON.stringify(updatedBlocked));
+        set({ blockedUsers: updatedBlocked });
+      }
+
+      toast.success('User blocked', { id: toastId });
+
+      const { useChatStore } = await import('./useChatStore.js');
+      useChatStore.getState().handleFriendRemoved(targetUser._id);
+
+      return true;
+    } catch (error) {
+      toast.error('Failed to block user', { id: toastId });
+      return false;
+    }
+  },
+
+  unblockUser: async (targetUserId) => {
+    const toastId = toast.loading('Updating...');
+    try {
+      const response = await api.post('/users/unblock', { userId: targetUserId });
+
+      const user = get().user;
+      if (user) {
+        const updatedBlocked = get().blockedUsers.filter(u => u._id !== targetUserId);
+        localStorage.setItem(`blocked_users_${user._id}`, JSON.stringify(updatedBlocked));
+        set({ blockedUsers: updatedBlocked });
+      }
+
+      toast.success('User unblocked', { id: toastId });
+      return true;
+    } catch (error) {
+      toast.error('Failed to unblock user', { id: toastId });
+      return false;
     }
   },
 }));

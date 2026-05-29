@@ -40,7 +40,7 @@ const formatTime = (dateString) => {
 };
 
 // Memoized FriendItem to prevent list re-renders when other items change
-const FriendItem = React.memo(({ friend, isActive, isOnline, unread, onClick }) => {
+const FriendItem = React.memo(({ friend, isActive, isOnline, unread, isTyping, onClick }) => {
   const lastMsg = friend.lastMessage;
 
   return (
@@ -91,7 +91,11 @@ const FriendItem = React.memo(({ friend, isActive, isOnline, unread, onClick }) 
         
         <div className="flex items-center justify-between gap-1">
           <p className="text-xs text-slate-400 truncate flex-1 leading-normal">
-            {lastMsg?.image ? (
+            {isTyping ? (
+              <span className="text-blue-400 font-medium animate-pulse">Typing...</span>
+            ) : lastMsg?.text === 'This message was deleted' || lastMsg?.deletedForEveryone ? (
+              <span className="italic text-slate-505">Message deleted</span>
+            ) : lastMsg?.image ? (
               <span className="flex items-center gap-1 text-blue-400">
                 <ImageIcon className="w-3.5 h-3.5" />
                 Image
@@ -120,6 +124,8 @@ const Sidebar = () => {
   // Specific auth selectors
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const blockedUsers = useAuthStore((state) => state.blockedUsers);
+  const unblockUser = useAuthStore((state) => state.unblockUser);
 
   // Specific chat store selectors
   const friends = useChatStore((state) => state.friends);
@@ -128,6 +134,7 @@ const Sidebar = () => {
   const onlineUsers = useChatStore((state) => state.onlineUsers);
   const unreadCounts = useChatStore((state) => state.unreadCounts);
   const fetchFriends = useChatStore((state) => state.fetchFriends);
+  const typingUsers = useChatStore((state) => state.typingUsers);
 
   // Specific friend store selectors
   const incomingRequests = useFriendStore((state) => state.incomingRequests);
@@ -291,6 +298,7 @@ const Sidebar = () => {
                       isActive={activeChat?._id === friend._id}
                       isOnline={onlineUsers.includes(friend._id)}
                       unread={unreadCounts[friend._id] || 0}
+                      isTyping={!!typingUsers[friend._id]}
                       onClick={() => setActiveChat(friend)}
                     />
                   ))
@@ -327,6 +335,7 @@ const Sidebar = () => {
                       searchResults.map((searchUser) => {
                         const isAlreadyFriend = isFriend(searchUser._id);
                         const status = getRequestStatus(searchUser._id);
+                        const isBlocked = blockedUsers.some(u => u._id === searchUser._id);
 
                         return (
                           <div
@@ -359,7 +368,14 @@ const Sidebar = () => {
 
                             {/* Actions */}
                             <div>
-                              {isAlreadyFriend ? (
+                              {isBlocked ? (
+                                <button
+                                  onClick={() => unblockUser(searchUser._id)}
+                                  className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-blue-600/10 text-blue-400 hover:bg-blue-600/20 active:scale-95 transition-all cursor-pointer"
+                                >
+                                  Unblock
+                                </button>
+                              ) : isAlreadyFriend ? (
                                 <button
                                   onClick={() => {
                                     setActiveChat(searchUser);

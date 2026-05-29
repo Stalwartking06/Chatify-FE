@@ -14,6 +14,10 @@ import {
   Info,
   User,
   Loader2,
+  MoreVertical,
+  Edit2,
+  Trash2,
+  Copy,
 } from 'lucide-react';
 
 const EMOJIS = [
@@ -45,10 +49,40 @@ const formatLastSeen = (lastSeenDate) => {
 };
 
 // Memoized MessageBubble to optimize rendering of large message history lists
-const MessageBubble = React.memo(({ msg, isSelf, isLastInGroup, msgTime, activeChat }) => {
+const MessageBubble = React.memo(({ msg, isSelf, isLastInGroup, msgTime, activeChat, onDelete }) => {
+  const editMessage = useChatStore((state) => state.editMessage);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(msg.text || '');
+  const [showMenu, setShowMenu] = useState(false);
+
+  const isDeleted = msg.text === "This message was deleted" || msg.deletedForEveryone;
+  const canEdit = isSelf && !isDeleted && (Date.now() - new Date(msg.createdAt).getTime() < 300000); // 5 minutes limit
+
+  const handleSaveEdit = async () => {
+    if (!editText.trim() && !msg.image) return;
+    if (editText.trim() === msg.text) {
+      setIsEditing(false);
+      return;
+    }
+    const success = await editMessage(msg._id, editText);
+    if (success) {
+      setIsEditing(false);
+    }
+  };
+
+  const handleDelete = () => {
+    onDelete(msg._id);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(msg.text || '');
+    toast.success("Message copied");
+  };
+
   return (
     <div
-      className={`flex items-end gap-2.5 max-w-[85%] md:max-w-[70%] ${
+      className={`flex items-end gap-2.5 max-w-[85%] md:max-w-[70%] group relative ${
         isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'
       }`}
     >
@@ -79,29 +113,63 @@ const MessageBubble = React.memo(({ msg, isSelf, isLastInGroup, msgTime, activeC
       <div className="flex flex-col">
         <div
           className={`glass-card p-3 shadow-md transition-all duration-200 ${
-            isSelf
-              ? 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-500 text-white rounded-2xl rounded-br-none border border-blue-500/20 shadow-md shadow-blue-900/10'
-              : 'bg-slate-800/85 text-slate-100 rounded-2xl rounded-bl-none border border-slate-700/60 shadow-sm'
+            isDeleted
+              ? 'bg-slate-900/40 text-slate-500 border border-slate-800/60 italic rounded-2xl'
+              : isSelf
+                ? 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-500 text-white rounded-2xl rounded-br-none border border-blue-500/20 shadow-md shadow-blue-900/10'
+                : 'bg-slate-800/85 text-slate-100 rounded-2xl rounded-bl-none border border-slate-700/60 shadow-sm'
           }`}
         >
-          {/* Optional Image */}
-          {msg.image && (
-            <div className="mb-1.5 max-w-full rounded-xl overflow-hidden border border-slate-900/50 bg-[#080c14]/40">
-              <img
-                src={
-                  msg.image.startsWith('/')
-                    ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${msg.image}`
-                    : msg.image
-                }
-                alt="Chat attachment"
-                className="max-h-60 object-contain w-full"
-                loading="lazy"
+          {isEditing ? (
+            <div className="flex flex-col gap-2 min-w-[180px]">
+              <textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="w-full text-xs p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-blue-500 resize-none"
+                rows={2}
+                autoFocus
               />
+              <div className="flex justify-end gap-1.5">
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditText(msg.text || '');
+                  }}
+                  className="px-2 py-0.5 text-[9px] font-bold rounded bg-slate-800 hover:bg-slate-700 text-slate-350 transition-all cursor-pointer border border-slate-750"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={(!editText.trim() && !msg.image) || editText.trim() === msg.text}
+                  className="px-2 py-0.5 text-[9px] font-bold rounded bg-blue-600 hover:bg-blue-500 text-white transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save
+                </button>
+              </div>
             </div>
+          ) : (
+            <>
+              {/* Optional Image */}
+              {msg.image && !isDeleted && (
+                <div className="mb-1.5 max-w-full rounded-xl overflow-hidden border border-slate-900/50 bg-[#080c14]/40">
+                  <img
+                    src={
+                      msg.image.startsWith('/')
+                        ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${msg.image}`
+                        : msg.image
+                    }
+                    alt="Chat attachment"
+                    className="max-h-60 object-contain w-full"
+                    loading="lazy"
+                  />
+                </div>
+              )}
+              
+              {/* Message Text */}
+              {msg.text && <p className="text-xs break-words leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
+            </>
           )}
-          
-          {/* Message Text */}
-          {msg.text && <p className="text-xs break-words leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
         </div>
 
         {/* Metadata Footer */}
@@ -111,6 +179,7 @@ const MessageBubble = React.memo(({ msg, isSelf, isLastInGroup, msgTime, activeC
               isSelf ? 'justify-end' : 'justify-start'
             }`}
           >
+            {msg.edited && !isDeleted && <span className="text-[8px] text-slate-500 italic mr-0.5">(edited)</span>}
             <span>{msgTime}</span>
             {isSelf && (
               <span className="scale-90">
@@ -126,9 +195,107 @@ const MessageBubble = React.memo(({ msg, isSelf, isLastInGroup, msgTime, activeC
           </div>
         )}
       </div>
+
+      {/* Hover Action Menu Trigger */}
+      {isSelf && !isDeleted && !isEditing && (
+        <div
+          onMouseLeave={() => setShowMenu(false)}
+          className="relative opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 flex items-center self-center px-1"
+        >
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-1 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 transition-all cursor-pointer"
+          >
+            <MoreVertical className="w-3.5 h-3.5" />
+          </button>
+          {showMenu && (
+            <div className="absolute bottom-6 right-0 bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-20 py-1 min-w-[80px] animate-slide-up">
+              {canEdit && (
+                <button
+                  onClick={() => {
+                    setIsEditing(true);
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-[10px] font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors flex items-center gap-1.5"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  Edit
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  handleDelete();
+                  setShowMenu(false);
+                }}
+                className="w-full text-left px-3 py-1.5 text-[10px] font-semibold text-red-400 hover:bg-red-950/30 hover:text-red-300 transition-colors flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3 h-3" />
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Receiver actions: Copy */}
+      {!isSelf && !isDeleted && (
+        <div
+          onMouseLeave={() => setShowMenu(false)}
+          className="relative opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 flex items-center self-center px-1"
+        >
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-1 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 transition-all cursor-pointer"
+          >
+            <MoreVertical className="w-3.5 h-3.5" />
+          </button>
+          {showMenu && (
+            <div className="absolute bottom-6 left-0 bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-20 py-1 min-w-[80px] animate-slide-up">
+              <button
+                onClick={() => {
+                  handleCopy();
+                  setShowMenu(false);
+                }}
+                className="w-full text-left px-3 py-1.5 text-[10px] font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors flex items-center gap-1.5"
+              >
+                <Copy className="w-3 h-3" />
+                Copy
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 });
+
+const ConfirmModal = ({ isOpen, title, message, confirmText, cancelText, onConfirm, onCancel, isDanger }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-[#0f172a]/95 border border-slate-800/80 rounded-3xl p-6 flex flex-col shadow-2xl relative animate-slide-up">
+        <h3 className="text-lg font-bold text-slate-200">{title}</h3>
+        <p className="text-xs text-slate-400 mt-2 leading-relaxed">{message}</p>
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95 transition-all cursor-pointer border border-slate-750"
+          >
+            {cancelText || 'Cancel'}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`flex-1 py-2.5 text-xs font-semibold rounded-xl text-white active:scale-95 transition-all cursor-pointer ${
+              isDanger ? 'bg-red-650 hover:bg-red-650/80 shadow-lg shadow-red-950/20' : 'bg-blue-600 hover:bg-blue-500'
+            }`}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 MessageBubble.displayName = 'MessageBubble';
 
@@ -143,6 +310,9 @@ const ChatWindow = ({ onBack }) => {
   const onlineUsers = useChatStore((state) => state.onlineUsers);
   const hasMoreMessages = useChatStore((state) => state.hasMoreMessages);
   const fetchMessages = useChatStore((state) => state.fetchMessages);
+  const removeFriend = useChatStore((state) => state.removeFriend);
+  const blockUser = useAuthStore((state) => state.blockUser);
+  const deleteMessage = useChatStore((state) => state.deleteMessage);
 
   const { emitTypingStart, emitTypingStop, emitMessageSeen } = useSocket();
 
@@ -151,6 +321,62 @@ const ChatWindow = ({ onBack }) => {
   const [imagePreview, setImagePreview] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showFriendProfile, setShowFriendProfile] = useState(false);
+
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    cancelText: '',
+    onConfirm: () => {},
+    isDanger: false
+  });
+
+  const handleDelete = (msgId) => {
+    setModalConfig({
+      isOpen: true,
+      title: 'Delete Message?',
+      message: 'Are you sure you want to delete this message? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      isDanger: true,
+      onConfirm: async () => {
+        setModalConfig(prev => ({ ...prev, isOpen: false }));
+        await deleteMessage(msgId);
+      }
+    });
+  };
+
+  const handleRemoveFriend = () => {
+    setModalConfig({
+      isOpen: true,
+      title: 'Remove Friend?',
+      message: `Are you sure you want to remove ${activeChat.displayName} from your friends list?`,
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      isDanger: true,
+      onConfirm: async () => {
+        setModalConfig(prev => ({ ...prev, isOpen: false }));
+        await removeFriend(activeChat._id);
+      }
+    });
+  };
+
+  const handleBlockUser = () => {
+    setModalConfig({
+      isOpen: true,
+      title: 'Block User?',
+      message: `Are you sure you want to block ${activeChat.displayName}? You will no longer receive messages from this user.`,
+      confirmText: 'Block',
+      cancelText: 'Cancel',
+      isDanger: true,
+      onConfirm: async () => {
+        setModalConfig(prev => ({ ...prev, isOpen: false }));
+        await blockUser(activeChat);
+      }
+    });
+  };
+
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   
   const scrollRef = useRef(null);
@@ -165,13 +391,17 @@ const ChatWindow = ({ onBack }) => {
   useEffect(() => {
     const scrollContainer = scrollRef.current;
     if (scrollContainer && !isFetchingMore) {
-      const isNearBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 200;
+      const isNearBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 250;
       
       const lastMessage = messages[messages.length - 1];
       const isMyMessage = lastMessage && (lastMessage.sender === user?._id || lastMessage.sender?._id === user?._id);
 
       if (isNearBottom || isMyMessage || messages.length <= 1) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        const scrollBehavior = messages.length <= 1 ? 'auto' : 'smooth';
+        scrollContainer.scrollTo({
+          top: scrollContainer.scrollHeight,
+          behavior: scrollBehavior
+        });
       }
     }
   }, [messages, isTyping, user?._id, isFetchingMore]);
@@ -415,6 +645,7 @@ const ChatWindow = ({ onBack }) => {
                   isLastInGroup={isLastInGroup}
                   msgTime={msgTime}
                   activeChat={activeChat}
+                  onDelete={handleDelete}
                 />
               );
             })
@@ -563,9 +794,38 @@ const ChatWindow = ({ onBack }) => {
                 {activeChat.bio || "No bio written yet."}
               </p>
             </div>
+
+            {/* Actions */}
+            <div className="w-full mt-6 pt-5 border-t border-slate-800/60 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleRemoveFriend}
+                className="w-full py-2 rounded-xl bg-red-650 hover:bg-red-650/80 text-white text-xs font-semibold transition-all active:scale-95 cursor-pointer shadow-md shadow-red-950/20"
+              >
+                Remove Friend
+              </button>
+              <button
+                type="button"
+                onClick={handleBlockUser}
+                className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all active:scale-95 cursor-pointer border border-slate-750"
+              >
+                Block User
+              </button>
+            </div>
           </div>
         </div>
       )}
+      
+      <ConfirmModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        isDanger={modalConfig.isDanger}
+      />
     </div>
   );
 };

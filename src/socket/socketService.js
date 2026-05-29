@@ -140,10 +140,26 @@ export const connectSocket = (token) => {
   socket.on('friend-request-rejected', ({ requestId }) => {
     useFriendStore.getState().removeRequestOnResponse(requestId);
   });
+
+  // MESSAGE EDITED
+  socket.on('message-edited', ({ messageId, text, edited, editedAt }) => {
+    useChatStore.getState().messageEdited({ messageId, text, edited, editedAt });
+  });
+
+  // MESSAGE DELETED
+  socket.on('message-deleted', ({ messageId }) => {
+    useChatStore.getState().messageDeleted({ messageId });
+  });
+
+  // FRIEND REMOVED
+  socket.on('friend-removed', ({ friendId }) => {
+    useChatStore.getState().handleFriendRemoved(friendId);
+  });
 };
 
 export const disconnectSocket = () => {
   if (socket) {
+    socket.removeAllListeners();
     socket.disconnect();
     socket = null;
   }

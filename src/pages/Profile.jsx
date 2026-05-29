@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/useAuthStore.js';
 import { Camera, User, FileText, ArrowLeft, Loader2, ZoomIn, ZoomOut, Move } from 'lucide-react';
 
 const Profile = () => {
-  const { user, updateProfile } = useAuthStore();
+  const { user, updateProfile, blockedUsers, unblockUser } = useAuthStore();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
@@ -280,6 +280,58 @@ const Profile = () => {
               )}
             </button>
           </form>
+
+          {/* Blocked Users Section */}
+          {blockedUsers && (
+            <div className="mt-8 pt-6 border-t border-slate-800/80 space-y-4">
+              <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                Blocked Users ({blockedUsers.length})
+              </h3>
+              {blockedUsers.length === 0 ? (
+                <p className="text-xs text-slate-500 italic">No blocked users.</p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {blockedUsers.map((blockedUser) => (
+                    <div
+                      key={blockedUser._id}
+                      className="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-[#0f172a]/60 border border-slate-800/60 shadow-sm animate-slide-up"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-700 bg-slate-800 flex items-center justify-center font-bold text-[10px] flex-shrink-0">
+                          {blockedUser.avatar ? (
+                            <img
+                              src={
+                                blockedUser.avatar.startsWith('/')
+                                  ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${blockedUser.avatar}`
+                                  : blockedUser.avatar
+                              }
+                              alt={blockedUser.displayName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            blockedUser.displayName.slice(0, 2).toUpperCase()
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-semibold text-slate-205 truncate">
+                            {blockedUser.displayName}
+                          </h4>
+                          <p className="text-[10px] text-slate-500 truncate">@{blockedUser.username}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => unblockUser(blockedUser._id)}
+                        className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-blue-600/10 text-blue-400 hover:bg-blue-600/20 active:scale-95 transition-all cursor-pointer border border-blue-500/10"
+                      >
+                        Unblock
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
 

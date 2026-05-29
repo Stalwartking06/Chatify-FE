@@ -15,6 +15,8 @@ export const useChatStore = create((set, get) => ({
 
   typingUsers: {},
 
+  typingTimeoutRefs: {},
+
   unreadCounts: {},
 
   isChatLoading: false,
@@ -34,6 +36,12 @@ export const useChatStore = create((set, get) => ({
         messages: [],
       });
 
+      return;
+    }
+
+    const blockedUsers = useAuthStore.getState().blockedUsers || [];
+    if (blockedUsers.some((u) => u._id === friend._id)) {
+      toast.error("You have blocked this user");
       return;
     }
 
@@ -417,16 +425,33 @@ export const useChatStore = create((set, get) => ({
   },
 
   // TYPING STATUS
-  setFriendTyping: (
-    userId,
-    isTyping
-  ) => {
+  setFriendTyping: (userId, isTyping) => {
+    if (get().typingTimeoutRefs?.[userId]) {
+      clearTimeout(get().typingTimeoutRefs[userId]);
+    }
+
+    let newTimeouts = { ...get().typingTimeoutRefs };
+
+    if (isTyping) {
+      // Auto-clear typing indicator after 5 seconds of inactivity
+      const timeoutId = setTimeout(() => {
+        set((state) => ({
+          typingUsers: {
+            ...state.typingUsers,
+            [userId]: false,
+          },
+        }));
+      }, 5000);
+
+      newTimeouts[userId] = timeoutId;
+    }
 
     set((state) => ({
       typingUsers: {
         ...state.typingUsers,
         [userId]: isTyping,
       },
+      typingTimeoutRefs: newTimeouts,
     }));
   },
 
@@ -498,5 +523,111 @@ export const useChatStore = create((set, get) => ({
           return m;
         }),
     }));
+  },
+
+  // EDIT MESSAGE
+  editMessage: async (messageId, text) => {
+    const toastId = toast.loading('Updating...');
+    try {
+      // Optimistic update
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m._id === messageId
+            ? { ...m, text: text.trim(), edited: true, editedAt: new Date().toISOString() }
+            : m
+        ),
+        friends: state.friends.map((f) =>
+          f.lastMessage?._id === messageId
+            ? { ...f, lastMessage: { ...f.lastMessage, text: text.trim(), edited: true, editedAt: new Date().toISOString() } }
+            : f
+        ),
+      }));
+
+      await api.put(`/messages/edit/${messageId}`, { text: text.trim() });
+      toast.success('Message edited', { id: toastId });
+      return true;
+    } catch (error) {
+      toast.error('Failed to edit message', { id: toastId });
+      return false;
+    }
+  },
+
+  // SOCKET CALLBACK FOR MESSAGE EDITED
+  messageEdited: ({ messageId, text, edited, editedAt }) => {
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m._id === messageId ? { ...m, text, edited, editedAt } : m
+      ),
+      friends: state.friends.map((f) =>
+        f.lastMessage?._id === messageId
+          ? { ...f, lastMessage: { ...f.lastMessage, text, edited, editedAt } }
+          : f
+      ),
+    }));
+  },
+
+  // DELETE MESSAGE
+  deleteMessage: async (messageId) => {
+    const toastId = toast.loading('Deleting...');
+    try {
+      // Optimistic update
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m._id === messageId ? { ...m, text: 'This message was deleted', image: '', deletedForEveryone: true } : m
+        ),
+        friends: state.friends.map((f) =>
+          f.lastMessage?._id === messageId
+            ? { ...f, lastMessage: { ...f.lastMessage, text: 'This message was deleted', image: '', deletedForEveryone: true } }
+            : f
+        ),
+      }));
+
+      await api.delete(`/messages/delete/${messageId}`);
+      toast.success('Message deleted', { id: toastId });
+      return true;
+    } catch (error) {
+      toast.error('Failed to delete message', { id: toastId });
+      return false;
+    }
+  },
+
+  // SOCKET CALLBACK FOR MESSAGE DELETED
+  messageDeleted: ({ messageId }) => {
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m._id === messageId ? { ...m, text: 'This message was deleted', image: '', deletedForEveryone: true } : m
+      ),
+      friends: state.friends.map((f) =>
+        f.lastMessage?._id === messageId
+          ? { ...f, lastMessage: { ...f.lastMessage, text: 'This message was deleted', image: '', deletedForEveryone: true } }
+          : f
+      ),
+    }));
+  },
+
+  // REMOVE FRIEND
+  removeFriend: async (friendId) => {
+    const toastId = toast.loading('Updating...');
+    try {
+      await api.delete(`/friends/remove/${friendId}`);
+      get().handleFriendRemoved(friendId);
+      toast.success('Friend removed', { id: toastId });
+      return true;
+    } catch (error) {
+      toast.error('Failed to remove friend', { id: toastId });
+      return false;
+    }
+  },
+
+  // HANDLE FRIEND REMOVED (SOCKET / API CALLBACK)
+  handleFriendRemoved: (friendId) => {
+    set((state) => {
+      const isActive = state.activeChat?._id === friendId;
+      return {
+        friends: state.friends.filter((f) => f._id !== friendId),
+        activeChat: isActive ? null : state.activeChat,
+        messages: isActive ? [] : state.messages,
+      };
+    });
   },
 }));
